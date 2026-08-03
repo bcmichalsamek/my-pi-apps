@@ -1,0 +1,14 @@
+#!/bin/bash
+
+APP_NAME="opencode-dev"
+
+if dpkg -l "$APP_NAME" &>/dev/null; then
+  status "Removing OpenCode Desktop..."
+  sudo dpkg -r "$APP_NAME"
+  status "Removing config..."
+  rm -rf "$HOME/.config/ai.opencode.desktop.dev"
+  rm -rf "$HOME/.config/ai.opencode.desktop"
+  status "OpenCode Desktop uninstalled."
+else
+  status "OpenCode Desktop is not installed."
+fi
