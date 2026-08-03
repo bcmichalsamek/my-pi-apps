@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# OpenCode Desktop - Pi-Apps install script
+# Installs the prebuilt package from dist/ if present, otherwise builds from source
+
+OPENCODE_CHANNEL="${OPENCODE_CHANNEL:-prod}"
+ARCH="$(dpkg --print-architecture)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+if [ "$ARCH" != "arm64" ]; then
+  echo "This package is for arm64 (Raspberry Pi 64-bit). Detected: $ARCH"
+  exit 1
+fi
+
+status "Installing system dependencies..."
+sudo apt-get install -y libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils \
+  libatspi2.0-0 libuuid1 libsecret-1-0 libgbm1 libdrm2 libasound2 libcups2 2>&1 | \
+  grep -E "^(Setting up|Selecting)"
+
+PREBUILT_DEB=$(ls "$SCRIPT_DIR"/dist/*.deb 2>/dev/null | head -1)
+
+if [ -n "$PREBUILT_DEB" ]; then
+  status "Installing prebuilt package: $PREBUILT_DEB"
+  sudo dpkg -i "$PREBUILT_DEB"
+else
+  status "No prebuilt package found. Building from source..."
+  status "This requires ~2GB disk space and ~8GB RAM (~30 min on a Pi 5)."
+  status "Cloning repository..."
+
+  git clone --depth 1 --branch dev https://github.com/anomalyco/opencode.git /tmp/opencode-build 2>&1 | tail -3
+
+  cd /tmp/opencode-build
+
+  status "Installing dependencies..."
+  bun install 2>&1 | tail -3
+
+  cd packages/desktop
+
+  status "Building server..."
+  OPENCODE_CHANNEL="$OPENCODE_CHANNEL" bun run prebuild 2>&1 | tail -5
+
+  status "Building JS assets..."
+  NODE_OPTIONS="--max-old-space-size=6144" bun run build 2>&1 | tail -3
+
+  status "Packaging..."
+  OPENCODE_CHANNEL="$OPENCODE_CHANNEL" bun run package:linux 2>&1 | tail -5
+
+  DEB_FILE=$(ls dist/*.deb 2>/dev/null | head -1)
+  if [ -n "$DEB_FILE" ]; then
+    status "Installing built package..."
+    sudo dpkg -i "$DEB_FILE"
+  else
+    error "Build failed - no .deb produced"
+    exit 1
+  fi
+
+  cd /
+  rm -rf /tmp/opencode-build
+fi
+
+status "OpenCode Desktop installed successfully!"
+status "Launch from menu or run: ai.opencode.desktop"
