@@ -35,8 +35,10 @@ my-pi-apps/
 The quickest way is a single command — `pi-install.sh` fetches the app list from this repo (no git clone needed), lets you browse the builds with a menu (or X11/terminal dialog if you have one), and installs immediately:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bcmichalsamek/my-pi-apps/main/pi-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bcmichalsamek/my-pi-apps/main/pi-install.sh -o /tmp/pi-install.sh && bash /tmp/pi-install.sh
 ```
+
+(Downloading to a file first keeps stdin free for the interactive menu; a raw `curl ... | bash` pipe can't read your menu selection.)
 
 Once it has downloaded the script you can rerun it anytime with `./pi-install.sh`. It gives you these choices for each app:
 
@@ -50,7 +52,7 @@ Once it has downloaded the script you can rerun it anytime with `./pi-install.sh
 `pi-install.sh` reuses each app's existing `install` / `uninstall` / `build.sh`, so one canonical copy of every script stays in the repo. You can pin a specific release with env vars:
 
 ```bash
-MY_PI_APPS_REPO=bcmichalsme/my-pi-apps MY_PI_APPS_BRANCH=main curl -fsSL https://raw.githubusercontent.com/bcmichalsme/my-pi-apps/main/pi-install.sh | bash
+MY_PI_APPS_REPO=bcmichalsamek/my-pi-apps MY_PI_APPS_BRANCH=main curl -fsSL https://raw.githubusercontent.com/bcmichalsamek/my-pi-apps/main/pi-install.sh -o /tmp/pi-install.sh && MY_PI_APPS_REPO=bcmichalsamek/my-pi-apps MY_PI_APPS_BRANCH=main bash /tmp/pi-install.sh
 ```
 
 > Note: `curl ... | bash` needs `git-lfs` installed only if you plan to run its `install` action against an app shipped as a `.deb`; plain script downloads need just `curl`.
@@ -59,7 +61,7 @@ MY_PI_APPS_REPO=bcmichalsme/my-pi-apps MY_PI_APPS_BRANCH=main curl -fsSL https:/
 
 ```bash
 sudo apt install git-lfs && git lfs install
-git clone https://github.com/bcmichalsme/my-pi-apps
+git clone https://github.com/bcmichalsamek/my-pi-apps
 cd my-pi-apps/apps/<app> && ./install
 ```
 
