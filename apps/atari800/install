@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# Atari 800 (v7.0.0) + FujiNet-PC - Pi-Apps install script
+# Builds the emulator AND the FujiNet-PC companion service from source.
+
+ARCH="$(dpkg --print-architecture)"
+if [ "$ARCH" != "arm64" ]; then
+  echo "This package is for arm64 (Raspberry Pi 64-bit). Detected: $ARCH"
+  exit 1
+fi
+
+status "Installing build dependencies..."
+sudo apt-get install -y \
+  build-essential autoconf automake libtool pkg-config \
+  libsdl2-dev zlib1g-dev libpng-dev libcurl4-openssl-dev libreadline-dev \
+  libgl1-mesa-dev libssl-dev libmbedtls-dev cmake python3 python3-venv 2>&1 | \
+  grep -E "^(Setting up|Selecting)"
+
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+
+status "Cloning and building atari800 (v7.0.0)..."
+cd "$STAGE"
+git clone --depth 1 https://github.com/atari800/atari800.git a800 2>&1 | tail -2
+cd a800
+autoreconf -vif 2>&1 | tail -2
+./configure --with-video=sdl2 --with-sound=sdl2 2>&1 | tail -3
+make -j"$(nproc)" 2>&1 | tail -3
+sudo make install 2>&1 | tail -2
+
+status "Cloning and building FujiNet-PC (ATARI target)..."
+cd "$STAGE"
+git clone --depth 1 https://github.com/FujiNetWIFI/fujinet-firmware.git fi 2>&1 | tail -2
+cd fi
+./build.sh -p ATARI -b 2>&1 | tail -8
+if [ -f build/fujinet ]; then
+  sudo install -m 755 build/fujinet /usr/bin/fujinet
+else
+  error "FujiNet-PC build failed - build/fujinet not found"
+  exit 1
+fi
+
+status "Installing FujiNet config..."
+sudo mkdir -p /etc/fujinet
+if [ ! -f /etc/fujinet/fnconfig.ini ]; then
+  sudo cp data/webui/device_specific/BUILD_ATARI/fnconfig.ini /etc/fujinet/fnconfig.ini
+fi
+
+status "Installing launcher..."
+sudo tee /usr/local/bin/atari800-fujinet > /dev/null << 'EOF'
+#!/bin/bash
+# Start FujiNet-PC companion, then atari800 with NetSIO
+mkdir -p "$HOME/.fujinet"
+cp -n /etc/fujinet/fnconfig.ini "$HOME/.fujinet/" 2>/dev/null || true
+( cd "$HOME/.fujinet" && fujinet ) &
+FJPID=$!
+sleep 2
+atari800 -netsio 9997 "$@"
+kill $FJPID 2>/dev/null
+EOF
+sudo chmod +x /usr/local/bin/atari800-fujinet
+
+status "Done!"
+status "  Launch via menu, or run: atari800-fujinet"
+status "  Or manually: fujinet + atari800 -netsio 9997"

@@ -1,0 +1,9 @@
+#!/bin/bash
+
+status "Removing Atari 800 + FujiNet..."
+sudo rm -f /usr/local/bin/atari800-fujinet /usr/bin/fujinet
+sudo rm -rf /etc/fujinet
+# atari800 was installed via 'make install' (no dpkg metadata)
+sudo rm -f "$(command -v atari800 2>/dev/null)" || true
+rm -rf "$HOME/.fujinet"
+status "Atari 800 + FujiNet removed."
